@@ -1,0 +1,27 @@
+{
+  "dependencies": {
+    "copyfiles": "^2.4.1",
+    "cross-env": "^7.0.3",
+    "cross-var": "^1.1.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "noble": "^1.9.1",
+    "npm-run-all": "^4.1.5",
+    "public-ip": "^4.0.2",
+    "@types/node": "^22.13.1",
+    "typescript": "^5.7.3"
+  },
+  "scripts": {
+    "prepare:python_env": "node src/infrastructure/create_python_venv.js requirements.txt",
+    "prepare:backend": "copyfiles --up 2 src/infrastructure/start_server.sh dist && copyfiles --up 2 src/infrastructure/stop_server.sh dist",
+    "prepare:frontend:mark_tls_certificate_trusted": "cross-var node src/infrastructure/run_python.js src/infrastructure/mark_ca_trusted.py %CER_OUTPUT_PATH%/ca.cer",
+    "prepare:generate_tls_certificate": "node -e \"process.env.NODE_ENV === 'production' ? process.exit(0) : process.exit(1)\" && npm run prepare:generate_tls_certificate:production || npm run prepare:generate_tls_certificate:development",
+    "prepare:generate_tls_certificate:production": "cross-var node src/infrastructure/run_python.js src/infrastructure/generate_certificate.py --output_path %CER_OUTPUT_PATH% --ip auto --expiration_days 3600",
+    "prepare:generate_tls_certificate:development": "cross-var node src/infrastructure/run_python.js src/infrastructure/generate_certificate.py --output_path %CER_OUTPUT_PATH% --ip 127.0.0.1 --expiration_days 3600",
+    "prepare": "cross-env CER_OUTPUT_PATH=dist/certificates/generated npm-run-all --serial prepare:python_env prepare:backend prepare:generate_tls_certificate prepare:frontend:mark_tls_certificate_trusted",
+    "prebuild": "copyfiles --up 2 src/frontend/**/* dist/public",
+    "build": "tsc",
+    "start:production": "cross-env CER_OUTPUT_PATH=dist/certificates/generated cross-var node dist/server.js -ip 0.0.0.0 -server_key_path %CER_OUTPUT_PATH%/server.key -server_cer_path %CER_OUTPUT_PATH%/server.cer",
+    "start:development": "cross-env CER_OUTPUT_PATH=dist/certificates/generated cross-var node dist/server.js -ip 127.0.0.1 -server_key_path %CER_OUTPUT_PATH%/server.key -server_cer_path %CER_OUTPUT_PATH%/server.cer"
+  }
+}
